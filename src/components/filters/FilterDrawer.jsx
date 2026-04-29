@@ -1,4 +1,4 @@
-﻿import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback } from 'react';
 import { X, SlidersHorizontal, RotateCcw } from 'lucide-react';
 import { useLedgerStore } from '../../store/ledgerStore.js';
 import { ALL_COUNTRIES, ALL_ASSET_TYPES, ALL_STATUSES, ALL_REGIONS } from '../../services/mockData.js';
@@ -106,7 +106,7 @@ export const FilterPanel = memo(function FilterPanel({ onClose }) {
       </div>
 
       {/* Scrollable content */}
-      <div className="flex-1 overflow-y-auto px-5 py-4 space-y-5">
+      <div className="flex-1 min-h-0 overflow-y-auto px-5 py-4 space-y-5">
         {/* Sort */}
         <div className="space-y-1.5">
           <label htmlFor="sort-select" className="text-[10px] uppercase tracking-widest text-[#bbb] font-mono block">
@@ -250,7 +250,7 @@ const FilterDrawer = memo(function FilterDrawer() {
         className={`fixed inset-x-0 bottom-0 z-50 bg-[#0a0a0a] border-t border-[#1f1f1f] rounded-t-2xl
           transition-transform duration-300 ease-out lg:hidden
           ${isOpen ? 'translate-y-0' : 'translate-y-full'}
-          max-h-[85dvh] flex flex-col`}
+          max-h-[85dvh] flex flex-col overflow-hidden`}
       >
         {/* Drag handle */}
         <div className="flex justify-center pt-3 pb-1 flex-shrink-0">

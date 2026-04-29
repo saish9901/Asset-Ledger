@@ -1,4 +1,4 @@
-﻿import React, { memo, useCallback, useRef, useEffect, useState } from 'react';
+import React, { memo, useCallback, useRef, useEffect, useState } from 'react';
 import { useInView } from 'react-intersection-observer';
 import { Loader2, RefreshCw } from 'lucide-react';
 import AssetCard from './AssetCard.jsx';
@@ -7,7 +7,7 @@ import { CardSkeletonList, TableSkeletonList } from '../ui/SkeletonLoader.jsx';
 
 // ── Lightweight virtual list (no react-window dependency) ────────────────────
 // Uses position:absolute + translateY so only visible rows mount.
-const CARD_HEIGHT = 196; // px per card including 12px gap
+const CARD_HEIGHT = 200; // px per card including 16px gap
 const OVERSCAN = 4;
 
 function useVirtualCards(items, containerHeight) {
@@ -120,7 +120,7 @@ const VirtualCardList = memo(function VirtualCardList({
               top: idx * CARD_HEIGHT + 16,
               left: 16,
               right: 16,
-              height: CARD_HEIGHT - 12,
+              height: CARD_HEIGHT - 16,
             }}
           >
             <AssetCard asset={item} />

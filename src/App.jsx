@@ -1,5 +1,5 @@
 import React, { memo, useCallback, useEffect, useState } from 'react';
-import { SlidersHorizontal, Database, TrendingUp, Globe, Activity } from 'lucide-react';
+import { SlidersHorizontal, Database, TrendingUp, Globe, Activity, ChevronDown } from 'lucide-react';
 import SearchBar from './components/search/SearchBar.jsx';
 import Navbar from './components/layout/Navbar.jsx';
 import Sidebar from './components/layout/Sidebar.jsx';
@@ -36,8 +36,43 @@ const StatCard = memo(function StatCard({ icon: Icon, label, value, sub, loading
 
 // ── Hero Banner ──────────────────────────────────────────────────────────────
 const HeroBanner = memo(function HeroBanner({ stats, statsLoading, total, items }) {
+  const [statsOpen, setStatsOpen] = useState(false);
+
+  const statGrid = (
+    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+      <StatCard
+        icon={Database}
+        label="Total Assets"
+        value={statsLoading ? '—' : formatNumber(stats?.totalAssets)}
+        sub="across all classes"
+        loading={statsLoading}
+      />
+      <StatCard
+        icon={Activity}
+        label="Active Assets"
+        value={statsLoading ? '—' : formatNumber(stats?.activeAssets)}
+        sub="live positions"
+        loading={statsLoading}
+      />
+      <StatCard
+        icon={Globe}
+        label="Countries"
+        value={statsLoading ? '—' : stats?.countriesCovered}
+        sub="global coverage"
+        loading={statsLoading}
+      />
+      <StatCard
+        icon={TrendingUp}
+        label="Portfolio Value"
+        value={statsLoading ? '—' : formatCurrencyCompact(stats?.portfolioValue)}
+        sub="total valuation"
+        loading={statsLoading}
+      />
+    </div>
+  );
+
   return (
-    <div className="px-4 sm:px-6 pt-6 pb-4 border-b border-[#111] space-y-5">
+    <div className="px-4 sm:px-6 pt-6 pb-4 border-b border-[#111] space-y-4">
       {/* Title block */}
       <div className="space-y-1">
         <div className="flex items-center gap-2">
@@ -54,37 +89,41 @@ const HeroBanner = memo(function HeroBanner({ stats, statsLoading, total, items 
         </p>
       </div>
 
-      {/* Stat grid */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-        <StatCard
-          icon={Database}
-          label="Total Assets"
-          value={statsLoading ? '—' : formatNumber(stats?.totalAssets)}
-          sub="across all classes"
-          loading={statsLoading}
+      {/* Mobile accordion trigger — hidden on lg+ */}
+      <button
+        id="stats-accordion-toggle"
+        onClick={() => setStatsOpen((o) => !o)}
+        aria-expanded={statsOpen}
+        aria-controls="stats-accordion-panel"
+        className="lg:hidden w-full flex items-center justify-between bg-[#0d0d0d] border border-[#1a1a1a] rounded-xl px-4 py-2.5 text-left hover:border-[#2a2a2a] transition-colors"
+      >
+        <span className="text-[10px] font-mono uppercase tracking-widest text-[#777]">
+          {statsOpen ? 'Hide Portfolio Stats' : 'Show Portfolio Stats'}
+        </span>
+        <ChevronDown
+          size={14}
+          className="text-[#555] flex-shrink-0 transition-transform duration-300"
+          style={{ transform: statsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
         />
-        <StatCard
-          icon={Activity}
-          label="Active Assets"
-          value={statsLoading ? '—' : formatNumber(stats?.activeAssets)}
-          sub="live positions"
-          loading={statsLoading}
-        />
-        <StatCard
-          icon={Globe}
-          label="Countries"
-          value={statsLoading ? '—' : stats?.countriesCovered}
-          sub="global coverage"
-          loading={statsLoading}
-        />
-        <StatCard
-          icon={TrendingUp}
-          label="Portfolio Value"
-          value={statsLoading ? '—' : formatCurrencyCompact(stats?.portfolioValue)}
-          sub="total valuation"
-          loading={statsLoading}
-        />
+      </button>
+
+      {/* Mobile accordion panel */}
+      <div
+        id="stats-accordion-panel"
+        role="region"
+        aria-labelledby="stats-accordion-toggle"
+        className="lg:hidden overflow-hidden transition-all duration-300 ease-in-out"
+        style={{
+          maxHeight: statsOpen ? '500px' : '0px',
+          opacity: statsOpen ? 1 : 0,
+          marginTop: statsOpen ? undefined : '0',
+        }}
+      >
+        <div className="pt-1">{statGrid}</div>
       </div>
+
+      {/* Desktop stat grid — always visible on lg+ */}
+      <div className="hidden lg:block">{statGrid}</div>
     </div>
   );
 });

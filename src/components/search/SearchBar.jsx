@@ -1,4 +1,4 @@
-﻿import React, { memo, useCallback } from 'react';
+import React, { memo, useCallback } from 'react';
 import { Search, X, Loader2 } from 'lucide-react';
 import { useLedgerStore } from '../../store/ledgerStore.js';
 import { useDebounce } from '../../hooks/useDebounce.js';
@@ -48,7 +48,7 @@ const SearchBar = memo(function SearchBar() {
         className={[
           'w-full bg-[#0a0a0a] border border-[#1f1f1f] rounded-lg',
           'pl-10 pr-10 py-2.5',
-          'text-sm text-white placeholder-[#666]',
+          'text-base sm:text-sm text-white placeholder-[#666]',
           'focus:outline-none focus:border-[#3a3a3a] focus:bg-[#111]',
           'transition-all duration-200',
           'font-mono tracking-tight',

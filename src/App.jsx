@@ -1,14 +1,12 @@
 import React, { memo, useCallback, useEffect, useState } from 'react';
-import { SlidersHorizontal, Database, TrendingUp, Globe, Activity, ChevronDown } from 'lucide-react';
+import { SlidersHorizontal } from 'lucide-react';
 import SearchBar from './components/search/SearchBar.jsx';
 import Navbar from './components/layout/Navbar.jsx';
 import Sidebar from './components/layout/Sidebar.jsx';
 import FilterDrawer from './components/filters/FilterDrawer.jsx';
 import VirtualizedList from './components/ledger/VirtualizedList.jsx';
-import { StatCardSkeleton } from './components/ui/SkeletonLoader.jsx';
 import { useLedgerStore } from './store/ledgerStore.js';
-import { useAssets, useStats } from './hooks/useAssets.js';
-import { formatCurrencyCompact, formatNumber } from './utils/formatCurrency.js';
+import { useAssets } from './hooks/useAssets.js';
 import { generateDataset } from './services/mockData.js';
 
 // Preload dataset on module init (background worker would be ideal; this is a heavy sync op)
@@ -19,61 +17,10 @@ setTimeout(() => {
   datasetReady = true;
 }, 0);
 
-// ── Stat Card ────────────────────────────────────────────────────────────────
-const StatCard = memo(function StatCard({ icon: Icon, label, value, sub, loading }) {
-  if (loading) return <StatCardSkeleton />;
-  return (
-    <div className="bg-[#0d0d0d] border border-[#1a1a1a] rounded-xl p-4 space-y-1 hover:border-[#2a2a2a] transition-colors">
-      <div className="flex items-center gap-2 mb-1.5">
-        <Icon size={13} className="text-[#777]" />
-        <span className="text-[10px] font-mono uppercase tracking-widest text-[#777]">{label}</span>
-      </div>
-      <p className="text-2xl font-bold text-white tracking-tight leading-none">{value}</p>
-      {sub && <p className="text-[11px] text-[#bbb] font-mono">{sub}</p>}
-    </div>
-  );
-});
-
 // ── Hero Banner ──────────────────────────────────────────────────────────────
-const HeroBanner = memo(function HeroBanner({ stats, statsLoading, total, items }) {
-  const [statsOpen, setStatsOpen] = useState(false);
-
-  const statGrid = (
-    <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-      <StatCard
-        icon={Database}
-        label="Total Assets"
-        value={statsLoading ? '—' : formatNumber(stats?.totalAssets)}
-        sub="across all classes"
-        loading={statsLoading}
-      />
-      <StatCard
-        icon={Activity}
-        label="Active Assets"
-        value={statsLoading ? '—' : formatNumber(stats?.activeAssets)}
-        sub="live positions"
-        loading={statsLoading}
-      />
-      <StatCard
-        icon={Globe}
-        label="Countries"
-        value={statsLoading ? '—' : stats?.countriesCovered}
-        sub="global coverage"
-        loading={statsLoading}
-      />
-      <StatCard
-        icon={TrendingUp}
-        label="Portfolio Value"
-        value={statsLoading ? '—' : formatCurrencyCompact(stats?.portfolioValue)}
-        sub="total valuation"
-        loading={statsLoading}
-      />
-    </div>
-  );
-
+const HeroBanner = memo(function HeroBanner() {
   return (
-    <div className="px-4 sm:px-6 pt-6 pb-4 border-b border-[#111] space-y-4">
-      {/* Title block */}
+    <div className="px-4 sm:px-6 pt-6 pb-4 border-b border-[#111]">
       <div className="space-y-1">
         <div className="flex items-center gap-2">
           <span className="text-[10px] font-mono uppercase tracking-[0.2em] text-[#777]">
@@ -88,42 +35,6 @@ const HeroBanner = memo(function HeroBanner({ stats, statsLoading, total, items 
           Institutional-grade ledger tracking {(200000).toLocaleString()}+ global assets in real time.
         </p>
       </div>
-
-      {/* Mobile accordion trigger — hidden on lg+ */}
-      <button
-        id="stats-accordion-toggle"
-        onClick={() => setStatsOpen((o) => !o)}
-        aria-expanded={statsOpen}
-        aria-controls="stats-accordion-panel"
-        className="lg:hidden w-full flex items-center justify-between bg-[#0d0d0d] border border-[#1a1a1a] rounded-xl px-4 py-2.5 text-left hover:border-[#2a2a2a] transition-colors"
-      >
-        <span className="text-[10px] font-mono uppercase tracking-widest text-[#777]">
-          {statsOpen ? 'Hide Portfolio Stats' : 'Show Portfolio Stats'}
-        </span>
-        <ChevronDown
-          size={14}
-          className="text-[#555] flex-shrink-0 transition-transform duration-300"
-          style={{ transform: statsOpen ? 'rotate(180deg)' : 'rotate(0deg)' }}
-        />
-      </button>
-
-      {/* Mobile accordion panel */}
-      <div
-        id="stats-accordion-panel"
-        role="region"
-        aria-labelledby="stats-accordion-toggle"
-        className="lg:hidden overflow-hidden transition-all duration-300 ease-in-out"
-        style={{
-          maxHeight: statsOpen ? '500px' : '0px',
-          opacity: statsOpen ? 1 : 0,
-          marginTop: statsOpen ? undefined : '0',
-        }}
-      >
-        <div className="pt-1">{statGrid}</div>
-      </div>
-
-      {/* Desktop stat grid — always visible on lg+ */}
-      <div className="hidden lg:block">{statGrid}</div>
     </div>
   );
 });
@@ -187,7 +98,6 @@ export default function App() {
     refetch,
   } = useAssets();
 
-  const { data: stats, isLoading: statsLoading } = useStats();
   const activeFilterCount = useLedgerStore((s) => s.activeFilterCount);
 
   return (
@@ -202,12 +112,7 @@ export default function App() {
         {/* Main content */}
         <main className="flex-1 min-w-0 min-h-0 flex flex-col overflow-hidden">
           {/* Hero */}
-          <HeroBanner
-            stats={stats}
-            statsLoading={statsLoading}
-            total={total}
-            items={allItems.length}
-          />
+          <HeroBanner />
 
           {/* Toolbar */}
           <LedgerToolbar
@@ -238,4 +143,3 @@ export default function App() {
     </div>
   );
 }
-

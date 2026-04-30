@@ -147,3 +147,12 @@ body {
 #filter-date-from {
   max-width: 80%;
 }
+
+@media (max-width: 1024px) {
+
+  input,
+  select,
+  textarea {
+    font-size: 16px !important;
+  }
+}

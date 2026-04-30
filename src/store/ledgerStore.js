@@ -16,11 +16,11 @@ export const useLedgerStore = create((set, get) => ({
   searchQuery: '',
   setSearchQuery: (q) => set({ searchQuery: q }),
 
-  // Sort (committed — drives the query)
+  // Sort
   sort: 'valuation_desc',
   setSort: (sort) => set({ sort }),
 
-  // Filters (committed — drives the query)
+  // Filters
   filters: { ...DEFAULT_FILTERS },
   setFilter: (key, value) =>
     set((state) => ({
@@ -28,45 +28,12 @@ export const useLedgerStore = create((set, get) => ({
     })),
   resetFilters: () => set({ filters: { ...DEFAULT_FILTERS } }),
 
-  // ── Draft filters (mobile drawer only) ────────────────────────────────────
-  // The drawer edits these; Apply Filters commits them to `filters`/`sort`.
-  draftFilters: { ...DEFAULT_FILTERS },
-  draftSort: 'valuation_desc',
-  setDraftFilter: (key, value) =>
-    set((state) => ({
-      draftFilters: { ...state.draftFilters, [key]: value },
-    })),
-  setDraftSort: (sort) => set({ draftSort: sort }),
-  resetDraftFilters: () =>
-    set({
-      draftFilters: { ...DEFAULT_FILTERS },
-      draftSort: 'valuation_desc',
-    }),
-
-  /** Commit draft → live filters and close the drawer */
-  applyDraftFilters: () => {
-    const { draftFilters, draftSort } = get();
-    set({
-      filters: { ...draftFilters },
-      sort: draftSort,
-      isFilterDrawerOpen: false,
-    });
-  },
-
   // Filter drawer (mobile)
   isFilterDrawerOpen: false,
-  openFilterDrawer: () => {
-    // Sync draft from current committed state when opening
-    const { filters, sort } = get();
-    set({
-      isFilterDrawerOpen: true,
-      draftFilters: { ...filters },
-      draftSort: sort,
-    });
-  },
+  openFilterDrawer: () => set({ isFilterDrawerOpen: true }),
   closeFilterDrawer: () => set({ isFilterDrawerOpen: false }),
 
-  // Active filter count (computed from committed filters)
+  // Active filter count (computed)
   get activeFilterCount() {
     const f = get().filters;
     let count = 0;

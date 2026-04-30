@@ -28,7 +28,7 @@ export default function App() {
   } = useAssets();
 
   // UI state: filters (for badge count), drawer toggle
-  const filters          = useLedgerStore((s) => s.filters);
+  const filters = useLedgerStore((s) => s.filters);
   const openFilterDrawer = useLedgerStore((s) => s.openFilterDrawer);
   const activeFilterCount = getActiveFilterCount(filters);
 

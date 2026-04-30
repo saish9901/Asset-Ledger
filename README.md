@@ -1,8 +1,8 @@
 # Global Asset Ledger
 
-A frontend asset management dashboard that displays **1,000,000 fake financial assets** with search, filters, sorting, and infinite scroll.
+A frontend asset management dashboard that processes **1,000,000 fake financial assets** with global search, filtering, sorting, and infinite scroll — all without freezing the browser.
 
-Used performance techniques like virtualized rendering, cursor pagination, debounced search, and skeleton loading.
+The core engineering challenge is handled by a **Web Worker**: all heavy computation (dataset generation, search, filter, sort) runs in a background thread. The main thread only handles UI and rendering.
 
 ---
 
@@ -18,38 +18,54 @@ Used performance techniques like virtualized rendering, cursor pagination, debou
 | Fake data generation | @faker-js/faker |
 | Infinite scroll trigger | react-intersection-observer |
 | Icons | lucide-react |
+| Off-thread computation | Web Worker (native browser API) |
 
 ---
 
-## How It Works
+## Architecture
 
 ### The big picture
 
 ```
-Faker pre-builds name pools, then generates 1,000,000 assets (runs once on startup)
-          ↓
-mockData.js holds them in memory
-          ↓
-api.js acts as a fake backend — search, filter, sort, then return 50 at a time
-          ↓
-TanStack Query fetches pages, caches results, handles retries
-          ↓
-Zustand stores what the user has typed/selected (search, filters, sort)
-          ↓
-LedgerView picks what to show: skeleton → error → cards (mobile) or table (desktop)
-          ↓
-react-window only renders the cards that are currently visible on screen
+Browser loads → HTML spinner shown immediately
+     ↓
+React mounts → shows "Initialising Global Ledger..." screen
+     ↓
+Web Worker starts in background thread
+     ↓
+Worker builds name pools (20k Faker calls), then generates 1,000,000 records
+     ↓
+Worker sends INIT_COMPLETE → React shows full app
+     ↓
+User searches/filters/sorts → Zustand updates instantly
+     ↓
+TanStack Query debounces 350ms → calls fetchAssets()
+     ↓
+api.js sends QUERY message to worker → worker runs full pipeline
+     ↓
+Worker: search → filter → sort → slice 50 records → postMessage slice back
+     ↓
+TanStack Query caches the 50-record page
+     ↓
+react-window renders only the cards currently visible on screen
 ```
 
-### Why not just load all 1,000,000 records at once?
+### Thread separation
 
-If you put 1,000,000 DOM elements on a page, the browser has to paint all of them — even the ones you can't see. That freezes the UI for many seconds and uses gigabytes of memory.
+| Thread | Responsibility |
+|---|---|
+| **Main thread** | UI rendering, inputs, state updates, page transitions |
+| **Worker thread** | Dataset generation, search, filter, sort, pagination |
 
-Instead, this app does three things:
+Only 50 records ever cross the thread boundary per request. The full 1M dataset stays in worker memory — it is never sent to the main thread.
 
-1. **Fetches 50 records at a time** — the "API" returns a cursor pointing to the next page, just like a real backend would
-2. **Only renders what's visible** — react-window keeps just ~5 card elements in the DOM at any time, swapping them as you scroll
-3. **Caches pages** — TanStack Query remembers pages you've already loaded, so scrolling back up is instant
+### Why not load all 1,000,000 records on the main thread?
+
+1M records on the main thread = 8–9 second freeze, gigabytes of memory, crashed mobile browsers.
+
+This app solves it at two levels:
+- **Generation is off-thread** — the Web Worker builds the dataset while the UI is already showing
+- **Rendering is minimal** — react-window keeps only ~7 card DOM elements alive at any time, regardless of how many records have loaded
 
 ---
 
@@ -57,10 +73,13 @@ Instead, this app does three things:
 
 ```
 src/
-  App.jsx                  ← root component, wires everything together
+  App.jsx                  ← root: initialises worker, shows loading screen, then LedgerContent
   main.jsx                 ← React entry point, sets up TanStack Query
   index.css                ← global styles + Tailwind
   utils.js                 ← formatCurrency, formatDate helpers
+
+  workers/
+    ledgerWorker.js        ← Web Worker: generates dataset + handles all queries
 
   components/
     Navbar.jsx             ← top bar with logo + timestamp
@@ -72,8 +91,9 @@ src/
     LedgerView.jsx         ← decides what to render: skeleton / error / cards / table
 
   services/
-    api.js                 ← fake API: search → filter → sort → paginate
-    mockData.js            ← generates 1,000,000 fake assets (pool-based, ~1s)
+    api.js                 ← sends QUERY to worker, returns 50-record slice
+    workerManager.js       ← Promise wrapper around the Web Worker
+    mockData.js            ← static filter option constants (countries, types, etc.)
 
   store/
     useLedgerStore.js      ← Zustand: search query, filters, sort, drawer state
@@ -86,53 +106,55 @@ src/
 
 ## Performance Details
 
-### 1. Virtualization (react-window)
-Only the cards visible on screen exist in the DOM. A list of 5,000 loaded cards renders as fast as a list of 5. Works on mobile — desktop uses a plain scrollable table.
+### 1. Web Worker (off-thread computation)
+All heavy work runs in `ledgerWorker.js` — a background thread that never touches the UI. Dataset generation, search, filter, and sort all happen there. The main thread receives only the 50 records it asked for.
 
-### 2. Debounced Search (350ms)
-The search input updates Zustand on every keystroke, but the actual API call only fires 350ms after the user stops typing. This prevents flooding the filter pipeline on every key press while still feeling responsive.
+### 2. Pool-based Generation
+Instead of calling Faker 3,000,000 times (once per field × 1M records = 8–9 seconds), the worker calls Faker 20,000 times to build name pools, then uses `Math.random()` array lookups for the main loop. Date generation uses `Math.random() + Date` — no Faker. Result: 1M records in ~1 second, entirely off the main thread.
 
-### 3. Infinite Scroll
-`useInfiniteQuery` loads 50 records at a time. A hidden `IntersectionObserver` element at the bottom of the list triggers the next page load automatically when the user scrolls near the end.
+### 3. Virtualization (react-window)
+Only the cards visible on screen exist in the DOM. Regardless of how many records have loaded, only ~7 card elements exist in the browser at any time.
 
-### 4. Cursor Pagination
-The fake API uses a `cursor` (a number index) instead of page numbers. Each response includes a `nextCursor` pointing to where the next page starts. This is how real production APIs like Stripe and GitHub work.
+### 4. Debounced Search (350ms)
+The search input updates Zustand on every keystroke, but the worker only receives a QUERY message 350ms after the user stops typing. This prevents flooding the worker pipeline on every key press.
 
-### 5. Singleton Dataset
-`generateDataset()` runs once and stores the result. Every subsequent call returns the same array reference — no re-generation on re-renders.
+### 5. Infinite Scroll + Cursor Pagination
+`useInfiniteQuery` loads 50 records at a time. An `IntersectionObserver` at the bottom of the list triggers the next page automatically. The worker uses cursor (index) pagination — each response includes a `nextCursor` for the next request.
 
-### 6. Skeleton Loading
-While the first page is loading, `SkeletonLoader.jsx` shows animated shimmer placeholders that match the exact shape of the real cards/rows. The user always sees something — never a blank screen.
+### 6. Skeleton Loading (first load + filter changes)
+Skeleton shimmer placeholders show on first load (`isLoading`) and also whenever a filter/sort/search change is processing. The second case is handled by detecting `isPlaceholderData && isFetching` — TanStack Query's `keepPreviousData` keeps old results visible, but when detected, the skeleton replaces them so the user gets visual feedback.
+
+### 7. Previous Data Preserved During Re-queries
+`placeholderData: keepPreviousData` in TanStack Query means old results stay on screen while the worker processes a new filter/sort. This prevents the list from flashing empty between queries.
 
 ---
 
-## API Design
-
-`api.js` exposes one function:
+## Worker Message Protocol
 
 ```js
-fetchAssets({ cursor, limit, search, filters, sort })
+// Main thread → Worker
+{ type: 'INIT',  payload: { count: 1000000 } }
+{ type: 'QUERY', payload: { search, filters, sort, cursor, limit }, id: 'q_...' }
+
+// Worker → Main thread
+{ type: 'INIT_COMPLETE',  payload: { total: 1000000 } }
+{ type: 'QUERY_RESULT',   payload: { items, nextCursor, total }, id: 'q_...' }
+{ type: 'QUERY_ERROR',    payload: { error: '...' }, id: 'q_...' }
 ```
 
-Every call:
-- Waits 300–700ms to simulate real network latency
-- Has a ~3% chance of failing to demonstrate error handling and TanStack Query's automatic retry
-- Runs the full pipeline: search → filter → sort → slice the dataset
-
-To connect this to a real backend, replace the contents of `api.js` with actual HTTP calls (e.g. `axios.get('/api/assets', { params })`). Everything else stays the same.
+Each QUERY gets a unique `id` so concurrent requests resolve independently without race conditions.
 
 ---
 
 ## State Management
 
-Two separate tools handle two separate concerns:
+Three separate layers, each with a distinct role:
 
-| Tool | Handles |
-|---|---|
-| **Zustand** | UI state — what the user has typed, what filters are selected, whether the mobile drawer is open |
-| **TanStack Query** | Server state — fetched data, loading/error status, page cache, retries |
-
-These are kept separate intentionally. Mixing them (e.g. storing fetched data in Zustand) creates hard-to-debug issues where UI state and server state get out of sync.
+| Layer | Tool | Handles |
+|---|---|---|
+| UI state | **Zustand** | Search text, active filters, sort mode, drawer open/closed |
+| Server state | **TanStack Query** | Page cache, loading/error status, retries, placeholderData |
+| Computation | **Web Worker** | Full dataset, search/filter/sort/paginate logic |
 
 ---
 
@@ -145,7 +167,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-> The app generates 1,000,000 fake records on first load. To keep this fast (~1s), generation uses a **pool-based approach**: Faker is called 20,000 times upfront to build pools of company names and people names, then the main loop just picks randomly from those pools — no Faker inside the loop. Date generation uses plain `Math.random()` instead of Faker. You'll see two timers in the console: `[mockData] Pool build: Xms` and `[mockData] Dataset generation: Xms`. After the first load, the dataset is cached in memory — no re-generation.
+> On first load the app shows "Initialising Global Ledger…" while the Web Worker builds 1,000,000 records in the background (~1s). The main thread is never blocked — you can interact with the page immediately. You'll see two timers in the browser console: `[worker] Pool build: Xms` and `[worker] Dataset generation: Xms`.
 
 ## Building for Production
 
@@ -153,3 +175,5 @@ Open [http://localhost:5173](http://localhost:5173).
 npm run build
 npm run preview
 ```
+
+> Vite bundles `ledgerWorker.js` as a separate chunk (`~414KB`). The main app bundle is only `~45KB`.

@@ -6,14 +6,52 @@ import FilterDrawer, { FilterPanel } from './components/FilterPanel.jsx';
 import LedgerView from './components/LedgerView.jsx';
 import { useLedgerStore, getActiveFilterCount } from './store/useLedgerStore.js';
 import { useAssets } from './hooks/useAssets.js';
-import { generateDataset } from './services/mockData.js';
+import { workerManager } from './services/workerManager.js';
 
-// Generate the full dataset once at startup, outside React's render cycle.
-// This is synchronous but runs before any component mounts — acceptable for a demo.
-generateDataset(1000000);
+// ─── Worker init loading screen ───────────────────────────────────────────────
+// Shown while the Web Worker is building the 1M-record dataset in the background.
+// Disappears automatically once the worker sends INIT_COMPLETE.
 
-export default function App() {
-  // Track viewport width to switch between mobile cards and desktop table
+function WorkerInitScreen() {
+  return (
+    <div className="fixed inset-0 bg-black flex flex-col items-center justify-center gap-5 z-50">
+      <div className="flex flex-col items-center gap-4">
+        {/* Logo mark */}
+        <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center mb-2">
+          <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
+            <rect x="1" y="1" width="6" height="6" rx="1" fill="black"/>
+            <rect x="11" y="1" width="6" height="6" rx="1" fill="black"/>
+            <rect x="1" y="11" width="6" height="6" rx="1" fill="black"/>
+            <rect x="11" y="11" width="6" height="6" rx="1" fill="black"/>
+          </svg>
+        </div>
+
+        {/* Spinner */}
+        <div
+          className="w-7 h-7 rounded-full border-2 border-[#1f1f1f] border-t-white animate-spin"
+          role="status"
+          aria-label="Loading"
+        />
+
+        {/* Label */}
+        <div className="text-center space-y-1.5">
+          <p className="text-white text-sm font-semibold tracking-tight">
+            Global Asset Ledger
+          </p>
+          <p className="text-[#555] font-mono text-[10px] uppercase tracking-[0.18em]">
+            Initialising · Building 1,000,000 records
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── Main ledger UI ───────────────────────────────────────────────────────────
+// Only rendered once the worker is ready. All hooks live here so they only
+// run after the worker has data to respond to.
+
+function LedgerContent() {
   const [isMobile, setIsMobile] = useState(() => window.innerWidth < 1024);
   useEffect(() => {
     const handler = () => setIsMobile(window.innerWidth < 1024);
@@ -21,15 +59,18 @@ export default function App() {
     return () => window.removeEventListener('resize', handler);
   }, []);
 
-  // All server state: data, loading, pagination, errors
   const {
-    allItems, total, isLoading, isFetchingNextPage,
-    isError, hasNextPage, fetchNextPage, refetch, isSearching,
-  } = useAssets();
+    allItems, total, isLoading, isFetching, isPlaceholderData,
+    isFetchingNextPage, isError, hasNextPage, fetchNextPage, refetch, isSearching,
+  } = useAssets({ enabled: true });
 
-  // UI state: filters (for badge count), drawer toggle
-  const filters = useLedgerStore((s) => s.filters);
-  const openFilterDrawer = useLedgerStore((s) => s.openFilterDrawer);
+  // Show skeleton on first load AND when a filter/sort/search change is being processed.
+  // isPlaceholderData is true when keepPreviousData is serving stale results while
+  // the worker computes the new query — without this, the skeleton never shows on re-queries.
+  const showSkeleton = isLoading || (isPlaceholderData && isFetching);
+
+  const filters           = useLedgerStore((s) => s.filters);
+  const openFilterDrawer  = useLedgerStore((s) => s.openFilterDrawer);
   const activeFilterCount = getActiveFilterCount(filters);
 
   return (
@@ -37,7 +78,7 @@ export default function App() {
       <Navbar />
 
       <div className="flex flex-1 min-h-0 overflow-hidden">
-        {/* Desktop sidebar — hidden on mobile, visible lg+ */}
+        {/* Desktop sidebar */}
         <aside
           className="hidden lg:flex flex-col w-64 xl:w-72 flex-shrink-0 bg-[#080808] border-r border-[#141414] h-full overflow-hidden"
           aria-label="Filter panel"
@@ -64,10 +105,9 @@ export default function App() {
             </div>
           </div>
 
-          {/* Toolbar: search input + mobile filter button + result count */}
+          {/* Toolbar */}
           <div className="sticky top-14 z-30 bg-black/95 backdrop-blur-sm border-b border-[#111] px-4 sm:px-6 py-3 flex items-center gap-3">
             <div className="flex-1 min-w-0">
-              {/* isSearching drives the spinner inside SearchBar */}
               <SearchBar isSearching={isSearching} />
             </div>
 
@@ -96,12 +136,12 @@ export default function App() {
             </div>
           </div>
 
-          {/* Ledger — fills all remaining space */}
+          {/* Ledger */}
           <div className="flex-1 overflow-hidden">
             <LedgerView
               items={allItems}
               total={total}
-              isLoading={isLoading}
+              isLoading={showSkeleton}
               isFetchingNextPage={isFetchingNextPage}
               isError={isError}
               hasNextPage={hasNextPage}
@@ -113,8 +153,25 @@ export default function App() {
         </main>
       </div>
 
-      {/* Mobile filter drawer — slides up from the bottom on small screens */}
+      {/* Mobile filter drawer */}
       <FilterDrawer />
     </div>
   );
+}
+
+// ─── Root ─────────────────────────────────────────────────────────────────────
+
+export default function App() {
+  const [workerReady, setWorkerReady] = useState(false);
+
+  useEffect(() => {
+    // Kick off worker initialization once on mount.
+    // The worker generates 1M records in the background.
+    // UI remains fully responsive during this time.
+    workerManager.init(1_000_000).then(() => setWorkerReady(true));
+  }, []);
+
+  if (!workerReady) return <WorkerInitScreen />;
+
+  return <LedgerContent />;
 }

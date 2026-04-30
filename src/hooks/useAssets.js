@@ -1,12 +1,11 @@
 import { useEffect, useState } from 'react';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, keepPreviousData } from '@tanstack/react-query';
 import { fetchAssets } from '../services/api.js';
 import { useLedgerStore } from '../store/useLedgerStore.js';
 
 const PAGE_SIZE = 50;
 
-// Debounce: waits until the user stops typing for `delay`ms before updating.
-// Inlined here because it's only needed by this hook.
+// Inlined debounce — only used here, not worth a separate file.
 function useDebounce(value, delay = 350) {
   const [debounced, setDebounced] = useState(value);
   useEffect(() => {
@@ -17,17 +16,17 @@ function useDebounce(value, delay = 350) {
 }
 
 /**
- * useAssets — the single data hook for the ledger.
+ * useAssets — single data hook for the ledger.
  *
- * Reads UI state (search, filters, sort) from Zustand.
- * Manages server state (pages, caching, loading) via TanStack Query.
- * Debounces the search query to reduce unnecessary fetches.
+ * @param {boolean} enabled — pass false while the worker is not yet ready
+ *                            so TanStack Query doesn't fire before the worker exists.
  *
  * Data flow:
- *   User types → Zustand searchQuery → debounced → TanStack queryKey changes
- *   → fetchAssets() called → api.js: search/filter/sort/paginate → cached result
+ *   User types → Zustand searchQuery → debounced 350ms → queryKey changes
+ *   → fetchAssets() → workerManager.query() → worker processes → 50-record slice returned
+ *   → TanStack Query caches it → allItems flattened → react-window renders visible rows
  */
-export function useAssets() {
+export function useAssets({ enabled = true } = {}) {
   const searchQuery = useLedgerStore((s) => s.searchQuery);
   const filters     = useLedgerStore((s) => s.filters);
   const sort        = useLedgerStore((s) => s.sort);
@@ -35,22 +34,25 @@ export function useAssets() {
   const debouncedSearch = useDebounce(searchQuery, 350);
 
   const query = useInfiniteQuery({
-    queryKey: ['assets', debouncedSearch, filters, sort],
-    queryFn: ({ pageParam = 0 }) =>
+    queryKey:  ['assets', debouncedSearch, filters, sort],
+    queryFn:   ({ pageParam = 0 }) =>
       fetchAssets({
         cursor: pageParam,
-        limit: PAGE_SIZE,
+        limit:  PAGE_SIZE,
         search: debouncedSearch,
         filters,
         sort,
       }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     initialPageParam: 0,
-    staleTime: 1000 * 30,   // 30s — data stays fresh without refetch
-    gcTime: 1000 * 60 * 5,  // 5m  — cached pages are kept in memory
+    enabled,
+    staleTime: 1000 * 30,   // 30s — cached pages stay fresh
+    gcTime:    1000 * 60 * 5, // 5m — pages kept in memory across filter changes
+    // Keep previous results visible while the worker processes the new query.
+    // Without this, the list flashes empty on every search/filter/sort change.
+    placeholderData: keepPreviousData,
   });
 
-  // Flatten all loaded pages into one list for the virtualized renderer
   const allItems = query.data?.pages.flatMap((p) => p.items) ?? [];
   const total    = query.data?.pages[0]?.total ?? 0;
 
@@ -58,7 +60,7 @@ export function useAssets() {
     ...query,
     allItems,
     total,
-    // True while the user is still typing (debounce hasn't settled yet)
+    // True while the user is still typing (debounce pending)
     isSearching: searchQuery !== debouncedSearch,
   };
 }

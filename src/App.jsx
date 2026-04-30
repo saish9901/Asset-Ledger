@@ -15,7 +15,7 @@ import { generateDataset } from './services/mockData.js';
 // We do this outside render to avoid blocking.
 let datasetReady = false;
 setTimeout(() => {
-  generateDataset(100000);
+  generateDataset(200000);
   datasetReady = true;
 }, 0);
 
@@ -85,7 +85,7 @@ const HeroBanner = memo(function HeroBanner({ stats, statsLoading, total, items 
           Enterprise Asset Portfolio
         </h1>
         <p className="text-sm text-[#bbb]">
-          Institutional-grade ledger tracking {(100000).toLocaleString()}+ global assets in real time.
+          Institutional-grade ledger tracking {(200000).toLocaleString()}+ global assets in real time.
         </p>
       </div>
 

@@ -19,10 +19,10 @@ function WorkerInitScreen() {
         {/* Logo mark */}
         <div className="w-10 h-10 bg-white rounded-lg flex items-center justify-center mb-2">
           <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
-            <rect x="1" y="1" width="6" height="6" rx="1" fill="black"/>
-            <rect x="11" y="1" width="6" height="6" rx="1" fill="black"/>
-            <rect x="1" y="11" width="6" height="6" rx="1" fill="black"/>
-            <rect x="11" y="11" width="6" height="6" rx="1" fill="black"/>
+            <rect x="1" y="1" width="6" height="6" rx="1" fill="black" />
+            <rect x="11" y="1" width="6" height="6" rx="1" fill="black" />
+            <rect x="1" y="11" width="6" height="6" rx="1" fill="black" />
+            <rect x="11" y="11" width="6" height="6" rx="1" fill="black" />
           </svg>
         </div>
 
@@ -38,7 +38,7 @@ function WorkerInitScreen() {
           <p className="text-white text-sm font-semibold tracking-tight">
             Global Asset Ledger
           </p>
-          <p className="text-[#555] font-mono text-[10px] uppercase tracking-[0.18em]">
+          <p className="text-[#555] mt-4 font-mono text-[10px] uppercase tracking-[0.18em]">
             Initialising · Building 1,000,000 records
           </p>
         </div>
@@ -69,8 +69,8 @@ function LedgerContent() {
   // the worker computes the new query — without this, the skeleton never shows on re-queries.
   const showSkeleton = isLoading || (isPlaceholderData && isFetching);
 
-  const filters           = useLedgerStore((s) => s.filters);
-  const openFilterDrawer  = useLedgerStore((s) => s.openFilterDrawer);
+  const filters = useLedgerStore((s) => s.filters);
+  const openFilterDrawer = useLedgerStore((s) => s.openFilterDrawer);
   const activeFilterCount = getActiveFilterCount(filters);
 
   return (

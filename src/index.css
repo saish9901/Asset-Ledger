@@ -141,3 +141,9 @@ body {
 .react-window-list {
   overflow-x: hidden !important;
 }
+
+/* filter date input */
+#filter-date-to,
+#filter-date-from {
+  max-width: 80%;
+}

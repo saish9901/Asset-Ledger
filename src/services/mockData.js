@@ -39,7 +39,7 @@ function getRandomRegionCountry() {
 
 let _dataset = null;
 
-export function generateDataset(count = 200000) {
+export function generateDataset(count = 500000) {
   if (_dataset) return _dataset;
 
   console.time('[mockData] Dataset generation');

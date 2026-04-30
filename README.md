@@ -1,108 +1,56 @@
 # Global Asset Ledger
 
-**Institutional-grade frontend asset management platform** — built to simulate and manage 100,000+ financial asset records with zero lag, enterprise-quality UX, and production-ready performance architecture.
+A frontend asset management dashboard that displays **200,000 fake financial assets** with search, filters, sorting, and infinite scroll.
 
----
-
-## Overview
-
-Global Asset Ledger is a frontend engineering showcase demonstrating how to handle **massive datasets** in the browser without sacrificing speed or responsiveness. It simulates a real financial platform with cursor-paginated API calls, debounced search, virtualized rendering, and a premium monochrome UI inspired by fintech leaders like Bloomberg Terminal and Stripe Dashboard.
+Used performance techniques like virtualized rendering, cursor pagination, debounced search, and skeleton loading.
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
+| What it does | Technology |
 |---|---|
-| Framework | React 19 + Vite |
+| UI framework | React 19 + Vite |
 | Styling | Tailwind CSS v4 |
-| State | Zustand |
-| Data Fetching | TanStack Query (infinite queries) |
-| Virtualization | react-window |
-| Data Generation | @faker-js/faker |
-| Intersection | react-intersection-observer |
+| UI state (search, filters) | Zustand |
+| Data fetching + pagination | TanStack Query |
+| Virtualized list (mobile) | react-window |
+| Fake data generation | @faker-js/faker |
+| Infinite scroll trigger | react-intersection-observer |
 | Icons | lucide-react |
+| Skeleton loading | Boneyard UI |
 
 ---
 
-## Architecture
+## How It Works
+
+### The big picture
 
 ```
-faker mock generation (100,000 records)
-         ↓
-  mockData.js (singleton dataset, generated once)
-         ↓
-  api.js (simulated backend — pagination, search, filter, sort, 300–700ms delay, ~3% error rate)
-         ↓
-  TanStack Query (infinite queries, cache, staleTime, retry)
-         ↓
-  Zustand (search query, filters, sort, drawer state)
-         ↓
-  VirtualizedList (react-window for mobile, native scroll for desktop)
-         ↓
-  AssetCard (mobile) / LedgerTable (desktop)
+Faker generates 200,000 fake assets (runs once on startup)
+          ↓
+mockData.js holds them in memory
+          ↓
+api.js acts as a fake backend — search, filter, sort, then return 50 at a time
+          ↓
+TanStack Query fetches pages, caches results, handles retries
+          ↓
+Zustand stores what the user has typed/selected (search, filters, sort)
+          ↓
+LedgerView picks what to show: skeleton → error → cards (mobile) or table (desktop)
+          ↓
+react-window only renders the cards that are currently visible on screen
 ```
 
-### Why not load the full dataset at once?
+### Why not just load all 200,000 records at once?
 
-Loading 100,000 records into the DOM would freeze the browser for seconds and consume hundreds of MB of memory. Instead:
+If you put 200,000 DOM elements on a page, the browser has to paint all of them — even the ones you can't see. That freezes the UI for several seconds and uses hundreds of MB of memory.
 
-- The dataset is **generated once** in memory using a singleton pattern
-- A **simulated API layer** chunks data into pages of 50 records via cursor pagination
-- TanStack Query manages **page caching** and only re-fetches when cache is stale
-- **Only the visible rows render** thanks to react-window virtualization
+Instead, this app does three things:
 
----
-
-## Performance Techniques
-
-### 1. Virtualization (react-window)
-Only the DOM nodes for currently-visible rows/cards are mounted. A list of 100,000 items renders as fast as a list of 20. `FixedSizeList` is used for O(1) scroll performance.
-
-### 2. Debounced Search (350ms)
-The search input is debounced by 350ms before triggering a new TanStack Query key. This prevents a new API call on every keystroke while still feeling instant.
-
-### 3. Infinite Scroll
-`useInfiniteQuery` loads 50 records at a time. An `IntersectionObserver` sentinel at the list bottom triggers `fetchNextPage()` when the user approaches the end — zero button clicks required.
-
-### 4. Chunked / Cursor Pagination
-`api.js` slices the dataset via `cursor` + `limit` parameters, mimicking a real database cursor. This means only 50 records travel through the filter/search pipeline per request.
-
-### 5. Memoization
-- All components wrapped in `React.memo`
-- Callbacks stabilized with `useCallback`
-- Derived values computed with `useMemo`
-- Zustand selectors prevent unnecessary re-renders via selector pattern
-
-### 6. Skeleton Loading
-`SkeletonLoader.jsx` provides shimmer skeletons for:
-- Asset cards (mobile)
-- Table rows (desktop)
-- Stat widgets (hero section)
-
-Never a blank state — perceived performance is instant.
-
-### 7. Dataset Singleton
-`generateDataset()` runs once and is cached in module scope. Subsequent calls return the reference. Generation happens in a `setTimeout(0)` to avoid blocking the initial render.
-
----
-
-## Simulated API Strategy
-
-`api.js` exposes:
-
-```js
-fetchAssets({ cursor, limit, search, filters, sort })
-fetchStats()
-fetchAssetById(id)
-```
-
-Each call:
-- Waits 300–700ms (artificial network delay)
-- Has a ~3% chance of throwing an error (retry simulation)
-- Applies search → filter → sort → pagination on the in-memory dataset
-
-This mirrors a production REST API contract exactly, so swapping to a real backend requires only changing `api.js`.
+1. **Fetches 50 records at a time** — the "API" returns a cursor pointing to the next page, just like a real backend would
+2. **Only renders what's visible** — react-window keeps just ~5 card elements in the DOM at any time, swapping them as you scroll
+3. **Caches pages** — TanStack Query remembers pages you've already loaded, so scrolling back up is instant
 
 ---
 
@@ -110,27 +58,82 @@ This mirrors a production REST API contract exactly, so swapping to a real backe
 
 ```
 src/
-├── components/
-│   ├── filters/FilterDrawer.jsx   — Mobile bottom sheet + desktop FilterPanel
-│   ├── layout/Navbar.jsx          — Sticky top navbar
-│   ├── layout/Sidebar.jsx         — Desktop sticky sidebar
-│   ├── ledger/AssetCard.jsx       — Mobile asset card
-│   ├── ledger/LedgerTable.jsx     — Desktop sortable table
-│   ├── ledger/VirtualizedList.jsx — react-window virtualized renderer
-│   ├── search/SearchBar.jsx       — Debounced search with clear/spinner
-│   └── ui/SkeletonLoader.jsx      — All skeleton loading states
-├── hooks/
-│   ├── useAssets.js               — TanStack Query infinite hook
-│   └── useDebounce.js             — Generic debounce hook
-├── services/
-│   ├── api.js                     — Simulated API layer
-│   └── mockData.js                — 100k record faker generator
-├── store/
-│   └── ledgerStore.js             — Zustand UI state
-└── utils/
-    ├── filterHelpers.js           — Pure filter/sort/paginate functions
-    └── formatCurrency.js          — Intl currency & date formatters
+  App.jsx                  ← root component, wires everything together
+  main.jsx                 ← React entry point, sets up TanStack Query
+  index.css                ← global styles + Tailwind
+  utils.js                 ← formatCurrency, formatDate helpers
+
+  components/
+    Navbar.jsx             ← top bar with logo + timestamp
+    SearchBar.jsx          ← search input (spinner while debouncing)
+    FilterPanel.jsx        ← filter + sort form (desktop sidebar & mobile drawer)
+    AssetCard.jsx          ← one card shown on mobile
+    LedgerTable.jsx        ← sortable table shown on desktop
+    SkeletonLoader.jsx     ← shimmer placeholders while data loads
+    LedgerView.jsx         ← decides what to render: skeleton / error / cards / table
+
+  services/
+    api.js                 ← fake API: search → filter → sort → paginate
+    mockData.js            ← generates 200,000 fake assets with Faker
+
+  store/
+    useLedgerStore.js      ← Zustand: search query, filters, sort, drawer state
+
+  hooks/
+    useAssets.js           ← TanStack Query infinite scroll hook + debounce
 ```
+
+---
+
+## Performance Details
+
+### 1. Virtualization (react-window)
+Only the cards visible on screen exist in the DOM. A list of 5,000 loaded cards renders as fast as a list of 5. Works on mobile — desktop uses a plain scrollable table.
+
+### 2. Debounced Search (350ms)
+The search input updates Zustand on every keystroke, but the actual API call only fires 350ms after the user stops typing. This prevents flooding the filter pipeline on every key press while still feeling responsive.
+
+### 3. Infinite Scroll
+`useInfiniteQuery` loads 50 records at a time. A hidden `IntersectionObserver` element at the bottom of the list triggers the next page load automatically when the user scrolls near the end.
+
+### 4. Cursor Pagination
+The fake API uses a `cursor` (a number index) instead of page numbers. Each response includes a `nextCursor` pointing to where the next page starts. This is how real production APIs like Stripe and GitHub work.
+
+### 5. Singleton Dataset
+`generateDataset()` runs once and stores the result. Every subsequent call returns the same array reference — no re-generation on re-renders.
+
+### 6. Skeleton Loading
+While the first page is loading, `SkeletonLoader.jsx` shows animated shimmer placeholders that match the exact shape of the real cards/rows. The user always sees something — never a blank screen.
+
+---
+
+## API Design
+
+`api.js` exposes one function:
+
+```js
+fetchAssets({ cursor, limit, search, filters, sort })
+```
+
+Every call:
+- Waits 300–700ms to simulate real network latency
+- Has a ~3% chance of failing to demonstrate error handling and TanStack Query's automatic retry
+- Runs the full pipeline: search → filter → sort → slice the dataset
+
+To connect this to a real backend, replace the contents of `api.js` with actual HTTP calls (e.g. `axios.get('/api/assets', { params })`). Everything else stays the same.
+
+---
+
+## State Management
+
+Two separate tools handle two separate concerns:
+
+| Tool | Handles |
+|---|---|
+| **Zustand** | UI state — what the user has typed, what filters are selected, whether the mobile drawer is open |
+| **TanStack Query** | Server state — fetched data, loading/error status, page cache, retries |
+
+These are kept separate intentionally. Mixing them (e.g. storing fetched data in Zustand) creates hard-to-debug issues where UI state and server state get out of sync.
 
 ---
 
@@ -143,9 +146,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-> **Note:** First load generates 100,000 records in ~100–200ms (browser). Subsequent navigations use the cache.
-
----
+> The app generates 200,000 fake records on first load (~150–200ms). Subsequent visits use the cached dataset.
 
 ## Building for Production
 

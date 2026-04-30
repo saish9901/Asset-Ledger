@@ -18,7 +18,6 @@ Used performance techniques like virtualized rendering, cursor pagination, debou
 | Fake data generation | @faker-js/faker |
 | Infinite scroll trigger | react-intersection-observer |
 | Icons | lucide-react |
-| Skeleton loading | Boneyard UI |
 
 ---
 

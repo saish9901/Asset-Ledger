@@ -146,7 +146,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-> The app generates 200,000 fake records on first load (~150–200ms). Subsequent visits use the cached dataset.
+> The app generates 200,000 fake records on first load. This takes **1–3 seconds** depending on your machine — each record requires several Faker calls (company name, person name, date), so it adds up. You'll see the exact time logged in the browser console: `[mockData] Dataset generation: Xms`. After the first load, the dataset is cached in memory and reused instantly for every search, filter, and sort — no re-generation.
 
 ## Building for Production
 

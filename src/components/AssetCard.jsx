@@ -1,27 +1,19 @@
-﻿import React, { memo } from 'react';
-import { formatCurrency, formatDate } from '../../utils/formatCurrency.js';
+import React, { memo } from 'react';
+import { formatCurrency, formatDate } from '../utils.js';
 
 const STATUS_STYLES = {
-  Active: 'bg-[#0e2a1e] text-[#3d9970] border-[#1a4a32]',
-  Inactive: 'bg-[#1a1a1a] text-[#999]    border-[#2a2a2a]',
-  Pending: 'bg-[#2a2000] text-[#b5890a] border-[#4a3800]',
-  Liquidated: 'bg-[#2a0a0a] text-[#c0392b] border-[#4a1010]',
-  'Under Review': 'bg-[#0a1a2a] text-[#2980b9] border-[#1a3a5a]',
+  Active:        'bg-[#0e2a1e] text-[#3d9970] border-[#1a4a32]',
+  Inactive:      'bg-[#1a1a1a] text-[#999]    border-[#2a2a2a]',
+  Pending:       'bg-[#2a2000] text-[#b5890a] border-[#4a3800]',
+  Liquidated:    'bg-[#2a0a0a] text-[#c0392b] border-[#4a1010]',
+  'Under Review':'bg-[#0a1a2a] text-[#2980b9] border-[#1a3a5a]',
 };
 
 const TYPE_ABBREV = {
-  'Equity': 'EQ',
-  'Fixed Income': 'FI',
-  'Real Estate': 'RE',
-  'Commodity': 'CM',
-  'Private Equity': 'PE',
-  'Hedge Fund': 'HF',
-  'Infrastructure': 'IF',
-  'Cryptocurrency': 'CR',
-  'Treasury Bond': 'TB',
-  'Corporate Bond': 'CB',
-  'Derivative': 'DV',
-  'Mutual Fund': 'MF',
+  'Equity': 'EQ', 'Fixed Income': 'FI', 'Real Estate': 'RE',
+  'Commodity': 'CM', 'Private Equity': 'PE', 'Hedge Fund': 'HF',
+  'Infrastructure': 'IF', 'Cryptocurrency': 'CR', 'Treasury Bond': 'TB',
+  'Corporate Bond': 'CB', 'Derivative': 'DV', 'Mutual Fund': 'MF',
 };
 
 const AssetCard = memo(function AssetCard({ asset }) {
@@ -47,9 +39,7 @@ const AssetCard = memo(function AssetCard({ asset }) {
             {asset.name}
           </h3>
         </div>
-        <span
-          className={`flex-shrink-0 text-[10px] font-semibold rounded-full px-2.5 py-1 border leading-none font-mono ${statusStyle}`}
-        >
+        <span className={`flex-shrink-0 text-[10px] font-semibold rounded-full px-2.5 py-1 border leading-none font-mono ${statusStyle}`}>
           {asset.status}
         </span>
       </div>
@@ -86,4 +76,3 @@ const AssetCard = memo(function AssetCard({ asset }) {
 });
 
 export default AssetCard;
-

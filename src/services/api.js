@@ -1,15 +1,12 @@
 import { getDataset } from './mockData.js';
-import { applyFiltersAndSearch, paginateResults } from '../utils/filterHelpers.js';
 
-const DEFAULT_DELAY_MIN = 300;
-const DEFAULT_DELAY_MAX = 700;
-
-function delay(min = DEFAULT_DELAY_MIN, max = DEFAULT_DELAY_MAX) {
-  const ms = Math.floor(Math.random() * (max - min + 1)) + min;
+// Simulated network latency: 300–700ms to mimic a real REST API
+function delay() {
+  const ms = Math.floor(Math.random() * 400) + 300;
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-// Simulate random network errors ~3% of the time
+// ~3% random failure rate — demonstrates error handling + TanStack Query retries
 function maybeThrowError() {
   if (Math.random() < 0.03) {
     throw new Error('Network error: Request failed. Please retry.');
@@ -17,9 +14,67 @@ function maybeThrowError() {
 }
 
 /**
- * GET /api/assets
- * Supports: cursor, limit, search, type, country, region, status, sort,
- *           valuationMin, valuationMax, dateFrom, dateTo
+ * Filter, search, sort, then paginate the in-memory dataset.
+ * All data logic lives here — one place to reason about the data pipeline.
+ *
+ * Flow: search → filter → sort → cursor pagination
+ */
+function queryDataset(dataset, { search, filters, sort, cursor, limit }) {
+  let results = dataset;
+
+  // Search: match across id, name, owner, country, type
+  if (search && search.trim()) {
+    const q = search.trim().toLowerCase();
+    results = results.filter(
+      (a) =>
+        a.id.toLowerCase().includes(q) ||
+        a.name.toLowerCase().includes(q) ||
+        a.owner.toLowerCase().includes(q) ||
+        a.country.toLowerCase().includes(q) ||
+        a.type.toLowerCase().includes(q)
+    );
+  }
+
+  // Filters — each is optional and skipped when empty/null
+  if (filters.type)    results = results.filter((a) => a.type === filters.type);
+  if (filters.country) results = results.filter((a) => a.country === filters.country);
+  if (filters.region)  results = results.filter((a) => a.region === filters.region);
+  if (filters.status)  results = results.filter((a) => a.status === filters.status);
+  if (filters.valuationMin != null) results = results.filter((a) => a.valuation >= filters.valuationMin);
+  if (filters.valuationMax != null) results = results.filter((a) => a.valuation <= filters.valuationMax);
+  if (filters.dateFrom) results = results.filter((a) => a.acquisitionDate >= filters.dateFrom);
+  if (filters.dateTo)   results = results.filter((a) => a.acquisitionDate <= filters.dateTo);
+
+  // Sort — spread to avoid mutating the original array
+  if (sort) {
+    results = [...results];
+    switch (sort) {
+      case 'valuation_desc': results.sort((a, b) => b.valuation - a.valuation); break;
+      case 'valuation_asc':  results.sort((a, b) => a.valuation - b.valuation); break;
+      case 'date_desc':      results.sort((a, b) => b.acquisitionDate.localeCompare(a.acquisitionDate)); break;
+      case 'date_asc':       results.sort((a, b) => a.acquisitionDate.localeCompare(b.acquisitionDate)); break;
+      case 'name_asc':       results.sort((a, b) => a.name.localeCompare(b.name)); break;
+      case 'name_desc':      results.sort((a, b) => b.name.localeCompare(a.name)); break;
+    }
+  }
+
+  // Cursor-based pagination — returns a slice + the next cursor position
+  const start = cursor;
+  const end = Math.min(start + limit, results.length);
+  const items = results.slice(start, end);
+  const nextCursor = end < results.length ? end : null;
+
+  return { items, nextCursor, total: results.length };
+}
+
+/**
+ * fetchAssets — the single API function for the ledger.
+ *
+ * Simulates a paginated REST endpoint. Accepts cursor, limit, search,
+ * filters, and sort. Returns items, nextCursor, and total match count.
+ *
+ * "We generate data locally with Faker and simulate real API behaviour
+ *  (latency + errors) so the architecture is identical to a real backend."
  */
 export async function fetchAssets({
   cursor = 0,
@@ -30,56 +85,5 @@ export async function fetchAssets({
 } = {}) {
   await delay();
   maybeThrowError();
-
-  const dataset = getDataset();
-
-  const filtered = applyFiltersAndSearch(dataset, { search, filters, sort });
-  const paginated = paginateResults(filtered, cursor, limit);
-
-  return {
-    items: paginated.items,
-    nextCursor: paginated.nextCursor,
-    total: paginated.total,
-    cursor,
-    limit,
-  };
-}
-
-/**
- * GET /api/assets/stats
- * Returns aggregate statistics about the whole dataset.
- */
-export async function fetchStats() {
-  await delay(200, 400);
-
-  const dataset = getDataset();
-
-  let totalValuation = 0;
-  const activeSet = new Set();
-  const countrySet = new Set();
-
-  for (const asset of dataset) {
-    totalValuation += asset.valuation;
-    if (asset.status === 'Active') activeSet.add(asset.id);
-    countrySet.add(asset.country);
-  }
-
-  return {
-    totalAssets: dataset.length,
-    activeAssets: activeSet.size,
-    countriesCovered: countrySet.size,
-    portfolioValue: totalValuation,
-  };
-}
-
-/**
- * GET /api/assets/:id
- */
-export async function fetchAssetById(id) {
-  await delay(100, 300);
-
-  const dataset = getDataset();
-  const asset = dataset.find((a) => a.id === id);
-  if (!asset) throw new Error(`Asset ${id} not found`);
-  return asset;
+  return queryDataset(getDataset(), { search, filters, sort, cursor, limit });
 }

@@ -1,16 +1,11 @@
-﻿import React, { memo } from 'react';
+import React, { memo } from 'react';
 
-/**
- * Generic skeleton block.
- * Pass className to control size/shape.
- */
+/** Generic shimmer block. Pass className to control size and shape. */
 export const SkeletonBlock = memo(function SkeletonBlock({ className = '' }) {
   return <div className={`skeleton ${className}`} aria-hidden="true" />;
 });
 
-/**
- * Skeleton for a single asset card (mobile).
- */
+/** Skeleton for a single mobile asset card. */
 export const AssetCardSkeleton = memo(function AssetCardSkeleton() {
   return (
     <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-4 space-y-3" aria-hidden="true">
@@ -46,9 +41,7 @@ export const AssetCardSkeleton = memo(function AssetCardSkeleton() {
   );
 });
 
-/**
- * Skeleton for a table row (desktop).
- */
+/** Skeleton for a single desktop table row. */
 export const TableRowSkeleton = memo(function TableRowSkeleton() {
   return (
     <div
@@ -67,9 +60,7 @@ export const TableRowSkeleton = memo(function TableRowSkeleton() {
   );
 });
 
-/**
- * Renders N card skeletons.
- */
+/** Renders N mobile card skeletons. */
 export function CardSkeletonList({ count = 6 }) {
   return (
     <div className="grid grid-cols-1 gap-3 p-4">
@@ -80,9 +71,7 @@ export function CardSkeletonList({ count = 6 }) {
   );
 }
 
-/**
- * Renders N table row skeletons.
- */
+/** Renders N desktop table row skeletons. */
 export function TableSkeletonList({ count = 15 }) {
   return (
     <div>
@@ -92,17 +81,3 @@ export function TableSkeletonList({ count = 15 }) {
     </div>
   );
 }
-
-/**
- * Stat card skeleton for hero section.
- */
-export const StatCardSkeleton = memo(function StatCardSkeleton() {
-  return (
-    <div className="bg-[#111] border border-[#1f1f1f] rounded-xl p-4 space-y-2" aria-hidden="true">
-      <SkeletonBlock className="h-3 w-24 rounded" />
-      <SkeletonBlock className="h-7 w-32 rounded" />
-      <SkeletonBlock className="h-2.5 w-16 rounded" />
-    </div>
-  );
-});
-

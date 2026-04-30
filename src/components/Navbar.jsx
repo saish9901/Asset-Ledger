@@ -1,4 +1,4 @@
-﻿import React, { memo } from 'react';
+import React, { memo } from 'react';
 import { Activity, LayoutGrid } from 'lucide-react';
 
 const Navbar = memo(function Navbar() {
@@ -23,21 +23,12 @@ const Navbar = memo(function Navbar() {
           </div>
         </div>
 
-        {/* Right side */}
-        <div className="flex items-center gap-3">
-          {/* Live indicator */}
-          {/* <div className="hidden sm:flex items-center gap-1.5 text-[#3d9970] text-xs font-mono">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#3d9970] pulse-dot block" />
-            LIVE
-          </div> */}
-
-          {/* Session info */}
-          <div className="hidden md:flex items-center gap-2 bg-[#0d0d0d] border border-[#1f1f1f] rounded-lg px-3 py-1.5">
-            <Activity size={12} className="text-[#bbb]" />
-            <span className="text-[#bbb] text-xs font-mono">
-              {new Date().toUTCString().slice(0, 16)} UTC
-            </span>
-          </div>
+        {/* Right side — UTC timestamp */}
+        <div className="hidden md:flex items-center gap-2 bg-[#0d0d0d] border border-[#1f1f1f] rounded-lg px-3 py-1.5">
+          <Activity size={12} className="text-[#bbb]" />
+          <span className="text-[#bbb] text-xs font-mono">
+            {new Date().toUTCString().slice(0, 16)} UTC
+          </span>
         </div>
       </div>
     </header>
@@ -45,4 +36,3 @@ const Navbar = memo(function Navbar() {
 });
 
 export default Navbar;
-

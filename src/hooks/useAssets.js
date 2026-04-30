@@ -1,61 +1,64 @@
-import { useInfiniteQuery, useQuery } from '@tanstack/react-query';
-import { fetchAssets, fetchStats } from '../services/api.js';
-import { useLedgerStore } from '../store/ledgerStore.js';
-import { useDebounce } from './useDebounce.js';
+import { useEffect, useState } from 'react';
+import { useInfiniteQuery } from '@tanstack/react-query';
+import { fetchAssets } from '../services/api.js';
+import { useLedgerStore } from '../store/useLedgerStore.js';
 
-const LIMIT = 50;
+const PAGE_SIZE = 50;
+
+// Debounce: waits until the user stops typing for `delay`ms before updating.
+// Inlined here because it's only needed by this hook.
+function useDebounce(value, delay = 350) {
+  const [debounced, setDebounced] = useState(value);
+  useEffect(() => {
+    const timer = setTimeout(() => setDebounced(value), delay);
+    return () => clearTimeout(timer);
+  }, [value, delay]);
+  return debounced;
+}
 
 /**
- * Infinite query for the main ledger.
- * Debounces search automatically.
+ * useAssets — the single data hook for the ledger.
+ *
+ * Reads UI state (search, filters, sort) from Zustand.
+ * Manages server state (pages, caching, loading) via TanStack Query.
+ * Debounces the search query to reduce unnecessary fetches.
+ *
+ * Data flow:
+ *   User types → Zustand searchQuery → debounced → TanStack queryKey changes
+ *   → fetchAssets() called → api.js: search/filter/sort/paginate → cached result
  */
 export function useAssets() {
   const searchQuery = useLedgerStore((s) => s.searchQuery);
-  const filters = useLedgerStore((s) => s.filters);
-  const sort = useLedgerStore((s) => s.sort);
+  const filters     = useLedgerStore((s) => s.filters);
+  const sort        = useLedgerStore((s) => s.sort);
 
   const debouncedSearch = useDebounce(searchQuery, 350);
 
-  const queryKey = ['assets', debouncedSearch, filters, sort];
-
   const query = useInfiniteQuery({
-    queryKey,
+    queryKey: ['assets', debouncedSearch, filters, sort],
     queryFn: ({ pageParam = 0 }) =>
       fetchAssets({
         cursor: pageParam,
-        limit: LIMIT,
+        limit: PAGE_SIZE,
         search: debouncedSearch,
         filters,
         sort,
       }),
     getNextPageParam: (lastPage) => lastPage.nextCursor ?? undefined,
     initialPageParam: 0,
-    staleTime: 1000 * 30,
-    gcTime: 1000 * 60 * 5,
-    retry: 2,
-    retryDelay: 500,
+    staleTime: 1000 * 30,   // 30s — data stays fresh without refetch
+    gcTime: 1000 * 60 * 5,  // 5m  — cached pages are kept in memory
   });
 
-  // Flatten pages into a single items array
+  // Flatten all loaded pages into one list for the virtualized renderer
   const allItems = query.data?.pages.flatMap((p) => p.items) ?? [];
-  const total = query.data?.pages[0]?.total ?? 0;
+  const total    = query.data?.pages[0]?.total ?? 0;
 
   return {
     ...query,
     allItems,
     total,
+    // True while the user is still typing (debounce hasn't settled yet)
     isSearching: searchQuery !== debouncedSearch,
   };
-}
-
-/**
- * Query for dashboard stats.
- */
-export function useStats() {
-  return useQuery({
-    queryKey: ['stats'],
-    queryFn: fetchStats,
-    staleTime: 1000 * 60 * 5,
-    gcTime: 1000 * 60 * 10,
-  });
 }

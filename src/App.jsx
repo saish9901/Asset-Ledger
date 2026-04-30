@@ -10,7 +10,7 @@ import { generateDataset } from './services/mockData.js';
 
 // Generate the full dataset once at startup, outside React's render cycle.
 // This is synchronous but runs before any component mounts — acceptable for a demo.
-generateDataset(200000);
+generateDataset(1000000);
 
 export default function App() {
   // Track viewport width to switch between mobile cards and desktop table
@@ -59,7 +59,7 @@ export default function App() {
                 Enterprise Asset Portfolio
               </h1>
               <p className="text-sm text-[#bbb]">
-                Institutional-grade ledger tracking {(200000).toLocaleString()}+ global assets in real time.
+                Institutional-grade ledger tracking {(1000000).toLocaleString()}+ global assets in real time.
               </p>
             </div>
           </div>

@@ -1,6 +1,6 @@
 # Global Asset Ledger
 
-A frontend asset management dashboard that displays **200,000 fake financial assets** with search, filters, sorting, and infinite scroll.
+A frontend asset management dashboard that displays **1,000,000 fake financial assets** with search, filters, sorting, and infinite scroll.
 
 Used performance techniques like virtualized rendering, cursor pagination, debounced search, and skeleton loading.
 
@@ -27,7 +27,7 @@ Used performance techniques like virtualized rendering, cursor pagination, debou
 ### The big picture
 
 ```
-Faker generates 200,000 fake assets (runs once on startup)
+Faker pre-builds name pools, then generates 1,000,000 assets (runs once on startup)
           ↓
 mockData.js holds them in memory
           ↓
@@ -42,9 +42,9 @@ LedgerView picks what to show: skeleton → error → cards (mobile) or table (d
 react-window only renders the cards that are currently visible on screen
 ```
 
-### Why not just load all 200,000 records at once?
+### Why not just load all 1,000,000 records at once?
 
-If you put 200,000 DOM elements on a page, the browser has to paint all of them — even the ones you can't see. That freezes the UI for several seconds and uses hundreds of MB of memory.
+If you put 1,000,000 DOM elements on a page, the browser has to paint all of them — even the ones you can't see. That freezes the UI for many seconds and uses gigabytes of memory.
 
 Instead, this app does three things:
 
@@ -74,7 +74,7 @@ src/
 
   services/
     api.js                 ← fake API: search → filter → sort → paginate
-    mockData.js            ← generates 200,000 fake assets with Faker
+    mockData.js            ← generates 1,000,000 fake assets (pool-based, ~1s)
 
   store/
     useLedgerStore.js      ← Zustand: search query, filters, sort, drawer state
@@ -146,7 +146,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
-> The app generates 200,000 fake records on first load. This takes **1–3 seconds** depending on your machine — each record requires several Faker calls (company name, person name, date), so it adds up. You'll see the exact time logged in the browser console: `[mockData] Dataset generation: Xms`. After the first load, the dataset is cached in memory and reused instantly for every search, filter, and sort — no re-generation.
+> The app generates 1,000,000 fake records on first load. To keep this fast (~1s), generation uses a **pool-based approach**: Faker is called 20,000 times upfront to build pools of company names and people names, then the main loop just picks randomly from those pools — no Faker inside the loop. Date generation uses plain `Math.random()` instead of Faker. You'll see two timers in the console: `[mockData] Pool build: Xms` and `[mockData] Dataset generation: Xms`. After the first load, the dataset is cached in memory — no re-generation.
 
 ## Building for Production
 

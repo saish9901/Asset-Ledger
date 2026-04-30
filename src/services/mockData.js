@@ -7,7 +7,6 @@ const ASSET_TYPES = [
 ];
 
 const STATUSES = ['Active', 'Inactive', 'Pending', 'Liquidated', 'Under Review'];
-
 const STATUS_WEIGHTS = [55, 15, 15, 10, 5]; // probability weights
 
 const REGIONS = {
@@ -37,34 +36,58 @@ function getRandomRegionCountry() {
   return { region, country };
 }
 
+// Pre-built pools for expensive Faker calls.
+// Instead of calling Faker 3M times (once per record × 1M records),
+// we call it 20,000 times upfront and randomly sample from the pool.
+// This is the key optimisation — reduces Faker calls by ~99%.
+const POOL_SIZE = 10_000;
+
+function buildPools() {
+  console.time('[mockData] Pool build');
+  const companies = Array.from({ length: POOL_SIZE }, () => faker.company.name());
+  const people    = Array.from({ length: POOL_SIZE }, () => faker.person.fullName());
+  console.timeEnd('[mockData] Pool build');
+  return { companies, people };
+}
+
+// Date generation — no Faker needed, plain Math.random() is 10x faster
+const DATE_START_MS = new Date('2005-01-01').getTime();
+const DATE_RANGE_MS = new Date('2025-12-31').getTime() - DATE_START_MS;
+
+function randomDate() {
+  const ms = DATE_START_MS + Math.random() * DATE_RANGE_MS;
+  return new Date(ms).toISOString().split('T')[0]; // "YYYY-MM-DD"
+}
+
+function pick(pool) {
+  return pool[Math.floor(Math.random() * pool.length)];
+}
+
 let _dataset = null;
 
 export function generateDataset(count = 1000000) {
   if (_dataset) return _dataset;
 
+  // Step 1: Build name pools — 20k Faker calls total (fast)
+  const { companies, people } = buildPools();
+
+  // Step 2: Generate 1M records using pool lookups (no Faker in loop)
   console.time('[mockData] Dataset generation');
   const assets = new Array(count);
 
   for (let i = 0; i < count; i++) {
     const { region, country } = getRandomRegionCountry();
-    const assetType = ASSET_TYPES[Math.floor(Math.random() * ASSET_TYPES.length)];
-    const status = weightedRandom(STATUSES, STATUS_WEIGHTS);
-    const valuation = parseFloat((Math.random() * 999_000_000 + 100_000).toFixed(2));
-    const acquisitionDate = faker.date.between({
-      from: new Date('2005-01-01'),
-      to: new Date('2025-12-31'),
-    });
-
+    const assetType = pick(ASSET_TYPES);
     assets[i] = {
       id: `GAL-${String(i + 1).padStart(7, '0')}`,
-      name: faker.company.name() + ' ' + assetType,
+      name: pick(companies) + ' ' + assetType,
       type: assetType,
-      owner: faker.person.fullName(),
+      owner: pick(people),
       country,
       region,
-      valuation,
-      acquisitionDate: acquisitionDate.toISOString().split('T')[0],
-      status,
+      valuation: Math.floor(Math.random() * 999_000_000 + 100_000),
+      acquisitionDate: randomDate(),
+      status: weightedRandom(STATUSES, STATUS_WEIGHTS),
     };
   }
 
